@@ -62,9 +62,10 @@ public class OnlineLDA {
 		
 		for(int tt=0; tt<100; tt++){
 			//
-			for(String w:lambda_[0].keySet()){
+			for(int w=0; w<wordSize; w++){
 				for(int k=0; k<K_; k++){
-					phi_.get(time).get(w)[k] = calcEq(time, k, features[w].getWord());
+					String tmpWord = features[w].getWord();
+					phi_.get(time).get(tmpWord)[k] = calcEq(time, k, tmpWord);
 				}
 			}
 			//
