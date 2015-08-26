@@ -3,11 +3,16 @@ package ldaCore;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Collections;
 
 import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.special.Gamma;
 
-public class OnlineLDA_Batch {
+
+import utils.LambdaComparator;
+import utils.LambdaCompare;
+
+public class OnlineLDA_Batch implements LDAModel{
 	static int D_ = -1;	
 	static int K_ = -1;	
 	private HashMap<String, double[]> lambda_;	
@@ -46,36 +51,64 @@ public class OnlineLDA_Batch {
 		
 	}
 	
+	@Override
 	public void trainBatch(Feature[][] featureBatch, int time){	/* ************************************ ************************* ******************* ***************** */
 		double rhot = Math.pow(tau0_ + time, -kappa_);
 		D_ = featureBatch.length;
-
+		
 		int[] Nds; 
 		String[][] names;
 		Nds = getNds(featureBatch);	// get Number of word in each document 
 		names = getNames(featureBatch, Nds);	// get names
 		
-		
 		initLambda(names, Nds);
 		initPhi(names, Nds, time);
-		initGamma();
 		
 		
 		for(int iter=0; iter < ITERNUM_; iter++){
 			// E STEP
 			// Phi
+			if(time >= 1000){
+				System.out.println("iter:" + iter);
+			}
 			for(int d=0; d<D_; d++){
+				if(time >=1000){
+					System.out.println("d:" + d);
+					System.out.println("Nds[d]:"+ Nds[d]);
+				}
+				initGamma();
 				int tmpTime = time + d;
 				for(int w=0; w<Nds[d]; w++){
+					if(time >=1000){
+						System.out.println("w:" + w);
+					}
 					String tmpWord = names[d][w];
+					long timeThetaS=0, timeThetaE=0, timeBetaS=0, timeBetaE=0;	// TODO remove
 					for(int k=0; k<K_; k++){
 						int tmpNd = Nds[d];
 						String[] tmpNames = names[d]; 
-						phi_.get(tmpTime).get(tmpWord)[k] = Math.exp(getEqTheta(tmpTime, k) + getEqBeta(k, tmpWord, tmpNd, tmpNames));
+
+//						if(time >=1000) timeThetaS = System.nanoTime();
+						double EqTheta = getEqTheta(tmpTime, k);
+//						if(time >=1000) timeThetaE = System.nanoTime();
+
+//						if(time >=1000) timeBetaS= System.nanoTime();
+						double EqBeta  =  getEqBeta(k, tmpWord, tmpNd, tmpNames);
+//						if(time >=1000) timeBetaE= System.nanoTime();
+						
+//						if(time >= 1000){
+//							System.out.println("theta:" + (timeThetaE - timeThetaS));
+//							System.out.println("beta:" + (timeBetaE - timeBetaS));
+//						}
+						
+						phi_.get(tmpTime).get(tmpWord)[k] = Math.exp(EqTheta + EqBeta);
 					}
 				}
 			}
 			// Gamma
+			if(time >=1000){
+				System.out.println("Gamma!");
+			}
 			for(int d=0; d<D_; d++){
 				int tmpTime = time + d;
 				for(int k=0; k<K_; k++){
@@ -85,6 +118,9 @@ public class OnlineLDA_Batch {
 				}
 			}
 			
+			if(time >= 1000){
+				System.out.println("M Step!");
+			}
 			// M STEP
 			double divider = 1d / D_;
 			for(int d=0; d<D_; d++){
@@ -225,7 +261,11 @@ public class OnlineLDA_Batch {
 		String[][] ret = new String[D_][];
 		
 		for(int i=0; i<D_; i++){
-			for(int j=0, Nd=Nds[i]; j<Nd; j++){
+			int Nd = Nds[i];
+			ret[i] = new String[Nd];
+//			System.out.println("Nd:" + Nd);
+			for(int j=0; j<Nd; j++){
+//				System.out.println("j:" + j);
 				ret[i][j] = featureBatch[i][j].getName();
 			}
 		}
@@ -243,9 +283,9 @@ public class OnlineLDA_Batch {
 	}
 
 
-	private final class Feature{
+	public static class Feature{	// TODO OK?
 		private String _name= "Not initialized";
-		private int   _count= -1000;
+		private int   _count= -1;
 		
 		public Feature(String name, int count){
 			_name = name;
@@ -259,6 +299,32 @@ public class OnlineLDA_Batch {
 		public int getCount(){
 			return _count;
 		}
+	}
+
+
+	@Override
+	public void showTopicWords() {
+		for(int k=0; k<K_; k++){
+			System.out.println("Topic:" + k);
+			ArrayList<String> sortedWords = getSortedLambda(k);
+			System.out.println("k:" + k + " sortedWords.size():" + sortedWords.size());
+			for(int tt=0; tt<20; tt++){
+				String tmpWord = sortedWords.get(tt);
+				System.out.println(tmpWord + ":" + lambda_.get(tmpWord)[k]);
+			}
+		}
+	}
+
+	private ArrayList<String> getSortedLambda(int k) {
+		ArrayList<String> ret = new ArrayList<String>();
+		ArrayList<LambdaCompare> compareList = new ArrayList<LambdaCompare>();
+		for(String word:lambda_.keySet()){
+			System.out.println(word);
+			double tmpValue = lambda_.get(word)[k];
+			compareList.add(new LambdaCompare(tmpValue, word));
+		}
+		Collections.sort(compareList, new LambdaComparator());
+		return ret;
 	}
 	
 }
