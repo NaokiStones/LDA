@@ -17,16 +17,16 @@ public class Excecute_Batch_20news {
 	static ArrayList<Feature[][]> featureBatchList = new ArrayList<Feature[][]>();
 
 	// Constant Parameters
-	static int batchSize_ = 5;
+	static int batchSize_ = 2;
 	static String baseURI = "/Users/ishikawanaoki/Documents/workspace/LDA/targetData";
 	
 	// LDA Parameters
-	static int K = 10;
+	static int K = 20;
 	static double alpha = 0.1;
-	static double eta = 0.1;
-	static double tau0 = 0.7;
-	static double kappa = 0.1;
-	static int IterNum = 1;
+	static double eta = 0.01;
+	static double tau0 = 64;
+	static double kappa = 0.7;
+	static int IterNum = 30;
 	
 	
 	public static void main(String[] args) throws IOException{
@@ -49,9 +49,9 @@ public class Excecute_Batch_20news {
 //		}
 //		// TEMP
 		
-		// Train
+		// Train *************************************************
 		int time = 0;
-		System.out.println("T MAX:" + featureBatchList.size());
+		System.out.println("T MAX:" + featureBatchList.size() * batchSize_);
 		for(Feature[][] featureBATCH:featureBatchList){
 			System.out.println("time:" + time);
 			onlineLDA_Batch.trainBatch(featureBATCH, time);
@@ -144,10 +144,13 @@ public class Excecute_Batch_20news {
 
 	private static String[] processLine(String line) {
 		String[] ret;
-		line.replaceAll("\"", "");
-//		line.replaceAll("\\", "");
-		line.replaceAll(">", "");
-		line.replaceAll("<", "");
+		line.replace("\"", " ");
+		line.replace(">", " ");
+		line.replace("<", " ");
+		line.replace("-", " ");
+		line.replace(",", " ");
+		line.replace(".", " ");
+		line.replace("(", " ");
 
 		ret = line.split(" ");
 		return ret;
