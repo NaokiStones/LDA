@@ -53,6 +53,11 @@ public class OnlineLDA {
 		
 		checkAndInitializeLambdaPerLine(features);	
 		
+//		for(int i=0; i<features.length; i++){
+//			System.out.print(features[i].getWord() + " ");
+//		}
+//		System.out.println("");
+		
 	
 		HashMap<String, Integer> countMap = new HashMap<String, Integer>();
 
