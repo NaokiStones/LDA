@@ -56,7 +56,6 @@ public class Execute_MiniBatch_20news_Onefile{
 //			}
 //		}
 //		// TEMP
-		
 		// Train *************************************************
 		int time = 0;
 		System.out.println("T MAX:" + featureBatchList.size() * batchSize_);
