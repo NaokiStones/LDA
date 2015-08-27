@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 
 import ldaCore.OnlineLDA_Batch;
 import ldaCore.OnlineLDA_Batch.Feature;
@@ -18,18 +19,23 @@ public class Excecute_Batch_20news {
 
 	// Constant Parameters
 	static int batchSize_ = 2;
-	static String baseURI = "/Users/ishikawanaoki/Documents/workspace/LDA/targetData";
+	static String baseURI;
+	
+	// limit Read File Per Directory
+	static int limit = 1;
 	
 	// LDA Parameters
-	static int K = 20;
+	static int K = 10;
 	static double alpha = 0.1;
-	static double eta = 0.01;
-	static double tau0 = 64;
-	static double kappa = 0.7;
-	static int IterNum = 30;
+	static double eta = 0.5;
+	static double tau0 = 4;
+	static double kappa = 0.9;
+	static int IterNum = 4;
 	
 	
 	public static void main(String[] args) throws IOException{
+		// Set Directory
+		baseURI = "./targetData/";
 		// IMPORT DATASET
 		getFiles();
 		
@@ -126,6 +132,13 @@ public class Excecute_Batch_20news {
 			}
 		}
 		
+		for (Iterator<String> i = tmpHashMap.keySet().iterator(); i.hasNext();) {
+			if (i.next().equals(1)) {
+				i.remove();
+			}
+		}
+
+
 		int tmpHashMapSize = tmpHashMap.size();
 		ret = new Feature[tmpHashMapSize];
 		
@@ -143,16 +156,59 @@ public class Excecute_Batch_20news {
 	}
 
 	private static String[] processLine(String line) {
+		
+		line = line.toLowerCase();
+		
 		String[] ret;
-		line.replace("\"", " ");
-		line.replace(">", " ");
-		line.replace("<", " ");
-		line.replace("-", " ");
-		line.replace(",", " ");
-		line.replace(".", " ");
-		line.replace("(", " ");
-
+		line = line.replace("\"", " ");
+		line = line.replace("\\", " ");
+		line = line.replace("/", " ");
+		line = line.replace(">", " ");
+		line = line.replace("<", " ");
+		line = line.replace("-", " ");
+		line = line.replace(",", " ");
+		line = line.replace(".", " ");
+		line = line.replace("(", " ");
+		line = line.replace(")", " ");
+		line = line.replace(":", " ");
+		line = line.replace(";", " ");
+		line = line.replace("'", " ");
+		line = line.replace("[", " ");
+		line = line.replace("]", " ");
+		line = line.replace("!", " ");
+		line = line.replace("*", " ");
+		line = line.replace("#", " ");
+		line = line.replace("+", " ");
+		line = line.replace("%", " ");
+		line = line.replace("@", " ");
+		line = line.replace("&", " ");
+		line = line.replace("?", " ");
+		line = line.replace("$", " ");
+		line = line.replace("0", " ");
+		line = line.replace("1", " ");
+		line = line.replace("2", " ");
+		line = line.replace("3", " ");
+		line = line.replace("4", " ");
+		line = line.replace("5", " ");
+		line = line.replace("6", " ");
+		line = line.replace("7", " ");
+		line = line.replace("8", " ");
+		line = line.replace("9", " ");
+		line = line.replace("\t", " ");
+		line = line.replace("_", " ");
+		line = line.replace("{", " ");
+		line = line.replace("}", " ");
+		line = line.replace("=", " ");
+		line = line.replace("|", " ");
+		
+		
+		
 		ret = line.split(" ");
+		
+		for(int i=0; i<ret.length; i++){
+			ret[i] = ret[i].replace(" ", "");
+		}
+
 		return ret;
 	}
 
@@ -169,7 +225,12 @@ public class Excecute_Batch_20news {
 			File childDir = new File(childDirURI);
 			String[] childFileNames = childDir.list();
 			
+			int cnt = 0;
 			for(String childFileName:childFileNames){
+				if(limit != -1){
+					if(cnt >= limit)
+						continue;
+				}
 				if(childFileName.startsWith(".")){
 					continue;
 				}
