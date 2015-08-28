@@ -3,6 +3,7 @@ package ldaCore;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.Collections;
 
 import org.apache.commons.math3.distribution.GammaDistribution;
@@ -21,7 +22,7 @@ public class OnlineLDA_Batch implements LDAModel{
 	
 	
 	// TEMP CONSTANTS
-	double shape = 10;
+	double shape = 100;
 	double scale = 1;
 	
 	// Hyper Parameter 
@@ -35,6 +36,7 @@ public class OnlineLDA_Batch implements LDAModel{
 	
 	// RANDOM
 	GammaDistribution gd = new GammaDistribution(shape, scale);
+	Random rnd = new Random(11111111);
 	
 	public OnlineLDA_Batch(int K, double alpha, double eta, double tau0, double kappa, int Iternum){
 		K_ = K;
@@ -70,6 +72,8 @@ public class OnlineLDA_Batch implements LDAModel{
 		clearGamma();
 		initGamma();
 		
+		ArrayList<double[]> lastGamma = gamma_;
+		
 		
 		for(int iter=0; iter < ITERNUM_; iter++){
 			System.out.println("iter:" + iter);
@@ -95,37 +99,43 @@ public class OnlineLDA_Batch implements LDAModel{
 //					System.out.println("d:" + d);
 //					System.out.println("Nds[d]:"+ Nds[d]);
 //				}
-				for(int w=0; w<Nds[d]; w++){
-//					if(time >=1000){
-//						System.out.println("w:" + w);
-//					}
-					String tmpWord = names[d][w];
-//					long timeThetaS=0, timeThetaE=0, timeBetaS=0, timeBetaE=0;	// TODO remove
-					double[] EqThetaVector = getDirichletVector(gamma_.get(d));
-					for(int k=0; k<K_; k++){
-						int tmpNd = Nds[d];
-						String[] tmpNames = names[d]; 
+				double[] EqThetaVector = getEqThetaVector(gamma_.get(d));
+				for(int k=0; k<K_; k++){
+					String[] tmpNames = names[d]; 
+					int tmpNd = Nds[d];
+					double tmpSumLambda = getSumLambda(k, tmpNd, tmpNames);
+					double EqThetaVectorK = EqThetaVector[k];
+					for(int w=0; w<Nds[d]; w++){
+						//					if(time >=1000){
+						//						System.out.println("w:" + w);
+						//					}
+						String tmpWord = names[d][w];
+						//					long timeThetaS=0, timeThetaE=0, timeBetaS=0, timeBetaE=0;	// TODO remove
 
-//						if(time >=1000) timeThetaS = System.nanoTime();
-//						double EqTheta = getEqTheta(d, k);		// TODO REMOVE OR 
-//						if(time >=1000) timeThetaE = System.nanoTime();
+						//						if(time >=1000) timeThetaS = System.nanoTime();
+						//						double EqTheta = getEqTheta(d, k);		// TODO REMOVE OR 
+						//						if(time >=1000) timeThetaE = System.nanoTime();
 
-//						if(time >=1000) timeBetaS= System.nanoTime();
-						double EqBeta  =  getEqBeta(k, tmpWord, tmpNd, tmpNames);
-//						if(time >=1000) timeBetaE= System.nanoTime();
+						//						if(time >=1000) timeBetaS= System.nanoTime();
+						double EqBeta  =  getEqBeta(k, tmpWord, tmpNd, tmpSumLambda); //						if(time >=1000) timeBetaE= System.nanoTime(); 
+						//						if(time >= 1000){
+						//							System.out.println("theta:" + (timeThetaE - timeThetaS));
+						//							System.out.println("beta:" + (timeBetaE - timeBetaS));
+						//						}
 						
-//						if(time >= 1000){
-//							System.out.println("theta:" + (timeThetaE - timeThetaS));
-//							System.out.println("beta:" + (timeBetaE - timeBetaS));
-//						}
+//						System.out.println("EqThetaVectorK: " + EqThetaVectorK);
+//						System.out.println("EqBeta: " + EqBeta);
 
-						phi_.get(d).get(tmpWord)[k] = Math.exp(EqThetaVector[k] + EqBeta);
+						phi_.get(d).get(tmpWord)[k] = Math.exp(EqThetaVectorK + EqBeta);
 					}
 				}
 			}
+			if(notChangeGamma(lastGamma, gamma_)){
+				break;
+			}
 		}
-		
-		
+
+
 		
 		if(time >= 1000){
 			System.out.println("M Step!");
@@ -137,7 +147,12 @@ public class OnlineLDA_Batch implements LDAModel{
 				int tmpCount = featureBatch[d][w].getCount();
 				for(int k=0; k<K_; k++){
 					// Compute Lambda_Bar
-					double tmpLambda_kw = eta_ + D_ * tmpCount * phi_.get(d).get(tmpWord)[k];
+					double DNTheta = D_ * tmpCount * phi_.get(d).get(tmpWord)[k];
+					double tmpLambda_kw = eta_ + DNTheta;
+//					System.out.println("D_:" + D_);
+//					System.out.println("tmpCount:" + tmpCount);
+//					System.out.println("phi_.get(d).get(tmpWord)[k]:" + phi_.get(d).get(tmpWord)[k]);
+//					System.out.println("DNTheta:" + DNTheta);
 					// Set Lambda
 					lambda_.get(tmpWord)[k] = (1 - rhot) * lambda_.get(tmpWord)[k] + rhot * tmpLambda_kw;
 					//						System.out.println(lambda_.get(tmpWord)[k]);
@@ -148,7 +163,25 @@ public class OnlineLDA_Batch implements LDAModel{
 	}
 	
 
-	private double[] getDirichletVector(double[] ds) {
+
+	private boolean notChangeGamma(ArrayList<double[]> lastGamma, ArrayList<double[]> gamma_time) {
+		double diff = 0;
+		
+		for(int d=0; d<D_; d++){
+			for(int k=0; k<K_; k++){
+				diff += Math.abs(lastGamma.get(d)[k] - gamma_time.get(d)[k]);
+			}
+		}
+
+		
+		if(diff < CHANGE_THREASH_HOLD * K_ * D_){
+			return true;
+		}else{
+			return false;
+		}
+	}
+
+	private double[] getEqThetaVector(double[] ds) {
 		double[] ret = new double[K_]; 
 		double sum = 0;
 		for(int k=0; k<K_; k++){
@@ -179,11 +212,10 @@ public class OnlineLDA_Batch implements LDAModel{
 	}
 
 
-	private double getEqBeta(int k, String tmpWord, int tmpNd, String[] tmpNames) {
+	private double getEqBeta(int k, String tmpWord, int tmpNd, double sumLambda) {
 		double ret = 0;
 //		long timeSumLambdaS=0, timeSumLambdaE=0, timeDigammaS=0,timeDigammaE=0;
 //		timeSumLambdaS = System.nanoTime();
-		double sumLambda = getSumLambda(k, tmpNd, tmpNames);
 //		timeSumLambdaE = System.nanoTime();
 		
 		double tmpLambda_wk = lambda_.get(tmpWord)[k];
@@ -234,11 +266,21 @@ public class OnlineLDA_Batch implements LDAModel{
 
 	private void initGamma() {
 		for(int i=0; i<D_; i++){
-			double[] tmpDArray = getUniformalDArray(1);
+//			double[] tmpDArray = getUniformalDArray(1);
+			double[] tmpDArray = getUniformalRandomDArray(1);
 			gamma_.add(tmpDArray);
 		}
 	}
 
+
+	private double[] getUniformalRandomDArray(int i) {
+		double[] ret = new double[K_];
+		for(int k=0; k<K_; k++){
+			ret[k] = rnd.nextGaussian() + 1.0;
+		}
+		
+		return ret;
+	}
 
 	private void initPhi(String[][] names, int[] Nds, int time) {
 		for(int d=0; d<D_; d++){
@@ -349,9 +391,14 @@ public class OnlineLDA_Batch implements LDAModel{
 		System.out.println("lambda_.size()" + lambda_.size());
 
 		for(int k=0; k<K_; k++){
+			
+			if(k!=0)
+				continue;
+			
+			
 			System.out.print("Topic:" + k);
 			try {
-				Thread.sleep(100);
+				Thread.sleep(10);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}

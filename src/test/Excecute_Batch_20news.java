@@ -22,24 +22,26 @@ public class Excecute_Batch_20news {
 	static String baseURI;
 	
 	// limit Read File Per Directory
-	static int limit = 1;
+	static int limit = 10;
 	
 	// LDA Parameters
-	static int K = 10;
-	static double alpha = 0.1;
-	static double eta = 0.5;
-	static double tau0 = 4;
-	static double kappa = 0.9;
-	static int IterNum = 4;
+	static int K = 20;
+	static double alpha = 1./K;
+	static double eta = 1./ K;
+	static double tau0 = 1024;
+	static double kappa = 0.7;
+	static int IterNum = 200;
 	
 	
 	public static void main(String[] args) throws IOException{
 		// Set Directory
-		baseURI = "./targetData/";
+		baseURI = "/Users/ishikawanaoki/Documents/workspace/LDA/targetData/";
 		// IMPORT DATASET
+		System.out.println("IMPORT DATASET");
 		getFiles();
 		
 		// MAKE BATCH
+		System.out.println("MAKE BATCH");
 		makeFeatureBatch();
 		
 		// generate LDA
@@ -56,6 +58,7 @@ public class Excecute_Batch_20news {
 //		// TEMP
 		
 		// Train *************************************************
+		System.out.println("TRAIN");
 		int time = 0;
 		System.out.println("T MAX:" + featureBatchList.size() * batchSize_);
 		for(Feature[][] featureBATCH:featureBatchList){
@@ -65,9 +68,9 @@ public class Excecute_Batch_20news {
 		}
 		
 		// Output
-		System.out.println("start Output");
+		System.out.println("OUTPUT");
 		onlineLDA_Batch.showTopicWords();
-		System.out.println("end Output");
+		System.out.println("END EXECUTION");
 	}
 	
 	private static void makeFeatureBatch() throws IOException {

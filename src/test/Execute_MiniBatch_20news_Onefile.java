@@ -26,18 +26,17 @@ public class Execute_MiniBatch_20news_Onefile{
 	static int limit = 1;
 	
 	// LDA Parameters
-	static int K = 3;
-	static double alpha = 0.1;
-	static double eta = 0.5;
-	static double tau0 = 4;
-	static double kappa = 0.9;
-	static int IterNum = 20;
+	static int K = 20;
+	static double alpha = 1./K;
+	static double eta = 1./ K;
+	static double tau0 = 1024;
+	static double kappa = 0.7;
+	static int IterNum = 200;
 	
 	
 	public static void main(String[] args) throws IOException{
 		// Set Directory
 		baseURI = "";
-		System.out.println("baseURI:" + baseURI);
 		// IMPORT DATASET
 		getFiles(args[0]);
 		
@@ -47,7 +46,7 @@ public class Execute_MiniBatch_20news_Onefile{
 		// generate LDA
 		OnlineLDA_Batch onlineLDA_Batch = new OnlineLDA_Batch(K, alpha, eta, tau0, kappa, IterNum);
 		
-//		// 
+		// 
 //		for(int i=0; i<featureBatchList.size(); i++){
 //			for(int j=0; j<featureBatchList.get(i).length; j++){
 //				for(int k=0; k<featureBatchList.get(i)[j].length; k++){
@@ -55,13 +54,14 @@ public class Execute_MiniBatch_20news_Onefile{
 //				}
 //			}
 //		}
-//		// TEMP
+		// TEMP
 		// Train *************************************************
 		int time = 0;
 		System.out.println("T MAX:" + featureBatchList.size() * batchSize_);
 		for(Feature[][] featureBATCH:featureBatchList){
 			System.out.println("time:" + time);
 			onlineLDA_Batch.trainBatch(featureBATCH, time);
+			onlineLDA_Batch.showTopicWords();// tmp
 			time += batchSize_;
 		}
 		
@@ -216,8 +216,8 @@ public class Execute_MiniBatch_20news_Onefile{
 	}
 
 	private static void getFiles(String str) {
-		fileNames.add(str);
-		fileNames.add(str);
-		fileNames.add(str);
+		for(int i=0; i< 100; i++){
+			fileNames.add(str);
+		}
 	}
 }
