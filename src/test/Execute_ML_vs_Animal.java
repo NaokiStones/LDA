@@ -9,45 +9,44 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
+
 import ldaCore.OnlineLDA_Batch;
 import ldaCore.OnlineLDA_Batch.Feature;
 
-public class Excecute_Batch_20news {
+public class Execute_ML_vs_Animal{
 	// Container
 	static ArrayList<String> fileNames = new ArrayList<String>();
 	static ArrayList<Feature[][]> featureBatchList = new ArrayList<Feature[][]>();
 
 	// Constant Parameters
-	static int batchSize_ = 2;
+	static int batchSize_ = 1;
 	static String baseURI;
 	
 	// limit Read File Per Directory
-	static int limit = 10;
+	static int limit = 100;
 	
 	// LDA Parameters
-	static int K = 20;
+	static int K = 2;
 	static double alpha = 1./K;
 	static double eta = 1./ K;
 	static double tau0 = 1024;
 	static double kappa = 0.7;
-	static int IterNum = 100;
+	static int IterNum = 200;
 	
 	
 	public static void main(String[] args) throws IOException{
 		// Set Directory
-		baseURI = "/Users/ishikawanaoki/Documents/workspace/LDA/targetData/";
+		baseURI = "/Users/ishikawanaoki/Documents/workspace/LDA/myCorpus/";
 		// IMPORT DATASET
-		System.out.println("IMPORT DATASET");
-		getFiles();
+		getFiles(baseURI);
 		
 		// MAKE BATCH
-		System.out.println("MAKE BATCH");
 		makeFeatureBatch();
 		
 		// generate LDA
 		OnlineLDA_Batch onlineLDA_Batch = new OnlineLDA_Batch(K, alpha, eta, tau0, kappa, IterNum);
 		
-//		// 
+		// 
 //		for(int i=0; i<featureBatchList.size(); i++){
 //			for(int j=0; j<featureBatchList.get(i).length; j++){
 //				for(int k=0; k<featureBatchList.get(i)[j].length; k++){
@@ -55,10 +54,8 @@ public class Excecute_Batch_20news {
 //				}
 //			}
 //		}
-//		// TEMP
-		
+		// TEMP
 		// Train *************************************************
-		System.out.println("TRAIN");
 		int time = 0;
 		System.out.println("T MAX:" + featureBatchList.size() * batchSize_);
 		for(Feature[][] featureBATCH:featureBatchList){
@@ -68,9 +65,9 @@ public class Excecute_Batch_20news {
 		}
 		
 		// Output
-		System.out.println("OUTPUT");
+		System.out.println("start Output");
 		onlineLDA_Batch.showTopicWords();
-		System.out.println("END EXECUTION");
+		System.out.println("end Output");
 	}
 	
 	private static void makeFeatureBatch() throws IOException {
@@ -133,6 +130,7 @@ public class Excecute_Batch_20news {
 					e1.printStackTrace();
 				}
 			}
+			System.out.println(tmpHashMap.size());
 		}
 		
 		for (Iterator<String> i = tmpHashMap.keySet().iterator(); i.hasNext();) {
@@ -162,7 +160,6 @@ public class Excecute_Batch_20news {
 		
 		line = line.toLowerCase();
 		
-		String[] ret;
 		line = line.replace("\"", " ");
 		line = line.replace("\\", " ");
 		line = line.replace("/", " ");
@@ -205,8 +202,10 @@ public class Excecute_Batch_20news {
 		line = line.replace("|", " ");
 		
 		
+		String[] ret;
 		
 		ret = line.split(" ");
+		
 		
 		for(int i=0; i<ret.length; i++){
 			ret[i] = ret[i].replace(" ", "");
@@ -215,41 +214,12 @@ public class Excecute_Batch_20news {
 		return ret;
 	}
 
-	private static void getFiles() {
-		File parentDir = new File(baseURI);
-		String[] childDirNames = parentDir.list();
-		
-		for(String childDirName:childDirNames){
-			if(childDirName.startsWith(".")){
-				continue;
-			}
-			String childDirURI = baseURI + "/" + childDirName;
-
-			File childDir = new File(childDirURI);
-			String[] childFileNames = childDir.list();
-			
-			int cnt = 0;
-			for(String childFileName:childFileNames){
-				if(limit != -1){
-					if(cnt >= limit)
-						continue;
-				}
-				if(childFileName.startsWith(".")){
-					continue;
-				}
-				String childFileURI = childDirURI + "/" + childFileName;
-				File childFile = new File(childFileURI);
-				if(childFile.exists() && childFile!=null){
-					fileNames.add(childFileURI);
-				}else{
-					System.out.println("File:" + childFileURI + " does not exist!");
-					try {
-						Thread.sleep(100000);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
-			}
+	private static void getFiles(String str) {
+		File dir = new File(str);
+		String[] files = dir.list();
+		for(String tmpFileName: files){
+			String tmpURI = str + tmpFileName;
+			fileNames.add(tmpURI);
 		}
 	}
 }

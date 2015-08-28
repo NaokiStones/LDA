@@ -216,7 +216,7 @@ public class Execute_MiniBatch_20news_Onefile{
 	}
 
 	private static void getFiles(String str) {
-		for(int i=0; i< 100; i++){
+		for(int i=0; i< 1000; i++){
 			fileNames.add(str);
 		}
 	}
