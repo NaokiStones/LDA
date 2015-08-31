@@ -23,15 +23,15 @@ public class Execute_ML_vs_Animal{
 	static String baseURI;
 	
 	// limit Read File Per Directory
-	static int limit = 100;
+	static int limit = 10;
 	
 	// LDA Parameters
-	static int K = 2;
+	static int K = 4;
 	static double alpha = 1./K;
 	static double eta = 1./ K;
-	static double tau0 = 1024;
-	static double kappa = 0.7;
-	static int IterNum = 200;
+	static double tau0 = 4;	// 1024
+	static double kappa = 0.9;	// 0.7
+	static int IterNum = 20;
 	
 	
 	public static void main(String[] args) throws IOException{
@@ -58,10 +58,16 @@ public class Execute_ML_vs_Animal{
 		// Train *************************************************
 		int time = 0;
 		System.out.println("T MAX:" + featureBatchList.size() * batchSize_);
-		for(Feature[][] featureBATCH:featureBatchList){
-			System.out.println("time:" + time);
-			onlineLDA_Batch.trainBatch(featureBATCH, time);
-			time += batchSize_;
+		
+		// FOR PERPLEXITY LOOP
+		for(int ppl=0; ppl<10; ppl++){
+			for(Feature[][] featureBATCH:featureBatchList){
+				System.out.println("time:" + time);
+				onlineLDA_Batch.trainBatch(featureBATCH, time);
+				//			onlineLDA_Batch.showTopicWords();
+				time += batchSize_;
+			}
+			System.out.println("perplexity:" + onlineLDA_Batch.getPerplexity());
 		}
 		
 		// Output
@@ -204,7 +210,14 @@ public class Execute_ML_vs_Animal{
 		
 		String[] ret;
 		
+		
 		ret = line.split(" ");
+		
+		if(line.equals("")){
+			ret = new String[1];
+			ret[0] = "";
+			return ret;
+		}
 		
 		
 		for(int i=0; i<ret.length; i++){
@@ -215,11 +228,13 @@ public class Execute_ML_vs_Animal{
 	}
 
 	private static void getFiles(String str) {
-		File dir = new File(str);
-		String[] files = dir.list();
-		for(String tmpFileName: files){
-			String tmpURI = str + tmpFileName;
-			fileNames.add(tmpURI);
+		for(int i=0; i<30; i++){
+			File dir = new File(str);
+			String[] files = dir.list();
+			for(String tmpFileName: files){
+				String tmpURI = str + tmpFileName;
+				fileNames.add(tmpURI);
+			}
 		}
 	}
 }

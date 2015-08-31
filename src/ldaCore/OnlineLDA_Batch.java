@@ -14,6 +14,7 @@ import utils.LambdaComparator;
 import utils.LambdaCompare;
 
 public class OnlineLDA_Batch implements LDAModel{
+	static int totalD = 0;
 	static int D_ = -1;	
 	static int K_ = -1;	
 	private HashMap<String, double[]> lambda_;	
@@ -22,8 +23,8 @@ public class OnlineLDA_Batch implements LDAModel{
 	
 	
 	// TEMP CONSTANTS
-	double shape = 100;
-	double scale = 1;
+	double shape = 1;	// 100
+	double scale = 1;	// 0.01
 	
 	// Hyper Parameter 
 	double alpha_= Double.NaN;	
@@ -33,6 +34,8 @@ public class OnlineLDA_Batch implements LDAModel{
 	
 	int ITERNUM_ = -1;	
 	double CHANGE_THREASH_HOLD = 1E-5;
+	
+	double perplexity = 0;
 	
 	// RANDOM
 	GammaDistribution gd = new GammaDistribution(shape, scale);
@@ -56,9 +59,11 @@ public class OnlineLDA_Batch implements LDAModel{
 	
 	@Override
 	public void trainBatch(Feature[][] featureBatch, int time){	/* ************************************ ************************* ******************* ***************** */
-		double rhot = Math.pow(tau0_ + time, -kappa_);
-//		double rhot = 0.2;
+		 double rhot = Math.pow(tau0_ + time, -kappa_);
+//		double rhot = 0.01;
+
 		D_ = featureBatch.length;
+		totalD += D_;
 		
 		int[] Nds; 
 		String[][] names;
@@ -73,11 +78,15 @@ public class OnlineLDA_Batch implements LDAModel{
 		clearGamma();
 		initGamma();
 		
-		ArrayList<double[]> lastGamma = gamma_;
+		ArrayList<double[]> lastGamma = copyGamma();
 		
 		
 		for(int iter=0; iter < ITERNUM_; iter++){
-			System.out.println("iter:" + iter);
+//			System.out.println("iter:" + iter);
+			lastGamma = new ArrayList<double[]>();
+			lastGamma = copyGamma();
+			
+			
 			// E STEP
 			// Gamma
 			for(int d=0; d<D_; d++){
@@ -103,16 +112,15 @@ public class OnlineLDA_Batch implements LDAModel{
 					}
 				}
 			}
+
 			if(notChangeGamma(lastGamma, gamma_)){
+				System.out.println("converged:" + iter);
 				break;
 			}
 		}
 
 
 		
-		if(time >= 1000){
-			System.out.println("M Step!");
-		}
 		// M STEP
 		for(int d=0; d<D_; d++){
 			for(int w=0; w<Nds[d]; w++){
@@ -120,22 +128,37 @@ public class OnlineLDA_Batch implements LDAModel{
 				int tmpCount = featureBatch[d][w].getCount();
 				for(int k=0; k<K_; k++){
 					// Compute Lambda_Bar
-					double DNTheta = D_ * tmpCount * phi_.get(d).get(tmpWord)[k];
+					double DNTheta = totalD * tmpCount * phi_.get(d).get(tmpWord)[k];
 					double tmpLambda_kw = eta_ + DNTheta;
 //					System.out.println("D_:" + D_);
 //					System.out.println("tmpCount:" + tmpCount);
 //					System.out.println("phi_.get(d).get(tmpWord)[k]:" + phi_.get(d).get(tmpWord)[k]);
 //					System.out.println("DNTheta:" + DNTheta);
-					// Set Lambda
+//					// Set Lambda
 					lambda_.get(tmpWord)[k] = (1 - rhot) * lambda_.get(tmpWord)[k] + rhot * tmpLambda_kw;
 					//						System.out.println(lambda_.get(tmpWord)[k]);
 					//						lambda_.get(tmpWord)[k] = 0;
 				}
 			}
 		}
+		
+		// calc Perplexity for mini-batch and Train
 	}
 	
 
+
+	private ArrayList<double[]> copyGamma() {
+		ArrayList<double[]> ret = new ArrayList<double[]>();
+		
+		for(int d=0; d<D_; d++){
+			double[] tmp = new double[K_];
+			for(int k=0; k<K_; k++){
+				tmp[k] = gamma_.get(d)[k];
+			}
+			ret.add(tmp);
+		}
+		return ret;
+	}
 
 	private boolean notChangeGamma(ArrayList<double[]> lastGamma, ArrayList<double[]> gamma_time) {
 		double diff = 0;
@@ -244,6 +267,7 @@ public class OnlineLDA_Batch implements LDAModel{
 			gamma_.add(tmpDArray);
 		}
 	}
+	
 
 
 	private double[] getUniformalRandomDArray() {
@@ -400,6 +424,13 @@ public class OnlineLDA_Batch implements LDAModel{
 		for(int w=0,W=compareList.size(); w<W; w++){
 			ret.add(compareList.get(w).getName());
 		}
+		return ret;
+	}
+
+	public double getPerplexity() {
+		double ret = perplexity;
+		perplexity = 0;
+		
 		return ret;
 	}
 	
