@@ -19,7 +19,7 @@ public class Execute_ML_vs_Animal{
 	static ArrayList<Feature[][]> featureBatchList = new ArrayList<Feature[][]>();
 
 	// Constant Parameters
-	static int batchSize_ = 1;
+	static int batchSize_ = 2;
 	static String baseURI;
 	
 	// limit Read File Per Directory
@@ -28,10 +28,11 @@ public class Execute_ML_vs_Animal{
 	// LDA Parameters
 	static int K = 4;
 	static double alpha = 1./K;
-	static double eta = 1./ K;
+//	static double eta = 1./ K;
+	static double eta = 1/(K*100);
 	static double tau0 = 4;	// 1024
 	static double kappa = 0.9;	// 0.7
-	static int IterNum = 20;
+	static int IterNum = 100;
 	
 	
 	public static void main(String[] args) throws IOException{
@@ -60,14 +61,14 @@ public class Execute_ML_vs_Animal{
 		System.out.println("T MAX:" + featureBatchList.size() * batchSize_);
 		
 		// FOR PERPLEXITY LOOP
-		for(int ppl=0; ppl<10; ppl++){
+		for(int ppl=0; ppl<100; ppl++){
 			for(Feature[][] featureBATCH:featureBatchList){
-				System.out.println("time:" + time);
+//				System.out.println("time:" + time);
 				onlineLDA_Batch.trainBatch(featureBATCH, time);
-				//			onlineLDA_Batch.showTopicWords();
 				time += batchSize_;
 			}
-			System.out.println("perplexity:" + onlineLDA_Batch.getPerplexity());
+//			onlineLDA_Batch.showTopicWords();
+			System.out.print(/*"perplexity:" +*/ onlineLDA_Batch.getPerplexity() + ",");
 		}
 		
 		// Output
