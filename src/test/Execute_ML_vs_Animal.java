@@ -29,10 +29,10 @@ public class Execute_ML_vs_Animal{
 	static int K = 4;
 	static double alpha = 1./K;
 //	static double eta = 1./ K;
-	static double eta = 1/(K*100);
+	static double eta = 1/(K*1E2);
 	static double tau0 = 4;	// 1024
 	static double kappa = 0.9;	// 0.7
-	static int IterNum = 100;
+	static int IterNum = 20;
 	
 	
 	public static void main(String[] args) throws IOException{
@@ -68,7 +68,7 @@ public class Execute_ML_vs_Animal{
 				time += batchSize_;
 			}
 //			onlineLDA_Batch.showTopicWords();
-			System.out.print(/*"perplexity:" +*/ onlineLDA_Batch.getPerplexity() + ",");
+			System.out.println(/*"perplexity:" +*/ onlineLDA_Batch.getPerplexity() + ",");
 		}
 		
 		// Output
@@ -229,7 +229,7 @@ public class Execute_ML_vs_Animal{
 	}
 
 	private static void getFiles(String str) {
-		for(int i=0; i<30; i++){
+		for(int i=0; i<100; i++){
 			File dir = new File(str);
 			String[] files = dir.list();
 			for(String tmpFileName: files){

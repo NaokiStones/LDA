@@ -9,8 +9,6 @@ import java.util.Collections;
 import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.special.Gamma;
 
-import com.sun.xml.internal.ws.addressing.W3CAddressingConstants;
-
 import utils.LambdaComparator;
 import utils.LambdaCompare;
 
@@ -23,7 +21,6 @@ public class OnlineLDA_Batch implements LDAModel{
 	private ArrayList<HashMap<String, double[]>> phi_;	
 	private ArrayList<double[]> gamma_;
 	
-	
 	// TEMP CONSTANTS
 	double shape = 100;	// 100
 	double scale = 0.01;	// 0.01
@@ -35,9 +32,10 @@ public class OnlineLDA_Batch implements LDAModel{
 	double kappa_= Double.NaN;
 	
 	int ITERNUM_ = -1;	
-	double CHANGE_THREASH_HOLD = 1E-5;
+	double CHANGE_THREASH_HOLD = 1E-9;
 	
 	double perplexity = 0;
+	double bound = 0;
 	
 	static int batchVSize = 0;
 	
@@ -53,12 +51,10 @@ public class OnlineLDA_Batch implements LDAModel{
 		kappa_ = kappa;
 		ITERNUM_ = Iternum;
 		
-		
 		// FIRST INITIALIZE
 		lambda_ = new HashMap<String, double[]>(10000);
 		phi_    = new ArrayList<HashMap<String, double[]>>();
 		gamma_  = new ArrayList<double[]>();
-		
 	}
 	
 	@Override
@@ -95,7 +91,7 @@ public class OnlineLDA_Batch implements LDAModel{
 			
 			
 			// E STEP
-			// Gamma
+				// Gamma
 			for(int d=0; d<D_; d++){
 //				double tmpGammaG = 0;
 				for(int k=0; k<K_; k++){
@@ -109,8 +105,7 @@ public class OnlineLDA_Batch implements LDAModel{
 //				for(int k=0; k<K_; k++){
 //					gamma_.get(d)[k] /= tmpGammaG;
 //				}
-			}
-			
+			}		
 			// Phi
 			for(int d=0; d<D_; d++){
 				EqThetaVector[d] = getEqThetaVector(gamma_.get(d));
@@ -134,8 +129,8 @@ public class OnlineLDA_Batch implements LDAModel{
 							tmp[k] = EqBeta;
 							betas.put(tmpWord, tmp);
 						}
-						tmpPhi = Math.exp(EqThetaVectorK + EqBeta);
-						phi_.get(d).get(tmpWord)[k] = tmpPhi + 1E-100;
+						tmpPhi = Math.exp(EqThetaVectorK + EqBeta) + 1E-100;
+						phi_.get(d).get(tmpWord)[k] = tmpPhi;
 //						System.out.print("next phi[d][w]:" + tmpPhi);
 //						System.out.print(tmpPhi + ",");
 //						tmpPhiSum[w] += tmpPhi;
@@ -187,7 +182,10 @@ public class OnlineLDA_Batch implements LDAModel{
 		
 		// calc Perplexity for mini-batch and Train
 		
-		perplexity += Math.exp(calcBoundPerBatch(Nds, featureBatch, EqThetaVector, betas) / (-1.0*batchVSize));
+		bound = calcBoundPerBatch(Nds, featureBatch, EqThetaVector, betas);
+
+//		perplexity += Math.exp( bound / (-1.0*batchVSize));
+		perplexity += ( bound / (-1.0*batchVSize));
 	}
 	
 	private void setBatchVocabularySize(int[] nds) {
@@ -222,9 +220,10 @@ public class OnlineLDA_Batch implements LDAModel{
 		for(int d=0; d<D_; d++){
 			for(int w=0; w<Nds[d]; w++){
 				tmpWord = featureBatch[d][w].getName();
+				int ndw = featureBatch[d][w].getCount();
 				for(int k=0; k<K_; k++){
 					double tmp_Phi_dk = phi_.get(d).get(tmpWord)[k];
-					ret += tmp_Phi_dk * (EqThetaVector[d][k] - EqBetas.get(tmpWord)[k] - Math.log(tmp_Phi_dk));
+					ret += ndw * tmp_Phi_dk * (EqThetaVector[d][k] + EqBetas.get(tmpWord)[k] - Math.log(tmp_Phi_dk));
 				}
 			}
 			// END OF FIRST LINE
@@ -233,11 +232,9 @@ public class OnlineLDA_Batch implements LDAModel{
 			tmpSum2 = 0;
 			for(int k=0; k<K_; k++){
 				tmpSum += gamma_.get(d)[k];
-				
 				tmpSum2 += ((alpha_ - gamma_.get(d)[k]) * EqThetaVector[d][k] + Math.log(Gamma.gamma(gamma_.get(d)[k])));
-				
 			}
-			ret -= Math.log(tmpSum);
+			ret -= Math.log(Gamma.gamma(tmpSum));
 			ret += tmpSum2;
 
 			// END OF SECOND LINE
@@ -264,7 +261,7 @@ public class OnlineLDA_Batch implements LDAModel{
 				tmpSum3_2 = 0;
 				for(int w=0; w<Nds[d]; w++){
 					tmpWord = featureBatch[d][w].getName();
-					tmpSum3_2 += (eta_ - lambda_.get(tmpWord)[k] ) * getEqBeta(k, tmpWord, tmpNd, tmpSumLambda) + Math.log(Gamma.gamma(lambda_.get(tmpWord)[k]));
+					tmpSum3_2 += (eta_ - lambda_.get(tmpWord)[k]) * getEqBeta(k, tmpWord, tmpNd, tmpSumLambda) + Math.log(Gamma.gamma(lambda_.get(tmpWord)[k]));
 				}
 				tmpSum3 += tmpSum3_2;
 			}
@@ -273,7 +270,7 @@ public class OnlineLDA_Batch implements LDAModel{
 			ret += tmpSum3;
 			// END OF THIRD LINE
 			
-			tmpSum4_1 = Math.log(K_ * alpha_);
+			tmpSum4_1 = Math.log(Gamma.gamma(K_ * alpha_));
 			tmpSum4_2 = K_ * Math.log(Gamma.gamma(alpha_));
 			tmpSum4_3_1 = Math.log(Gamma.gamma(W_ * eta_));
 			tmpSum4_3_2 = W_ * Math.log(Gamma.gamma(eta_));
@@ -610,5 +607,9 @@ public class OnlineLDA_Batch implements LDAModel{
 		double ret = perplexity;
 		perplexity = 0;
 		return ret;
+	}
+	
+	public double getBound(){
+		return bound;
 	}
 }
