@@ -21,10 +21,10 @@ import utils.LambdaCompare;
 public class OnlineLDA_Batch implements LDAModel{
 	
 	// 
-	private static double SHAPE = 100;
-	private static double SCALE = 0.01;
+	private static double SHAPE = 5;
+	private static double SCALE = 1 / SHAPE;
 	private static int ITERNUM= 200;	// TODO INITIALIZE 
-	private static double THRESHHOLD = 1E-5; // TODO INITIALIZE
+	private static double THRESHHOLD = 1E-7; // TODO INITIALIZE
 	
 	private static int D_;
 	private static double estimateD = 80; // TODO INITIALIZE	
@@ -117,14 +117,21 @@ public class OnlineLDA_Batch implements LDAModel{
 			// END OF SECOND LINE
 			tmpSum3 = 0;
 			
+//			System.out.println("Print Lambda");
 			for(int k=0; k<K_; k++){
 				tmpSum3_1 = 0;
+
+				System.out.println("w Size" + featureBatch.length);
+				System.out.println("featureBatch:" + featureBatch[0].length);
 				tmp = 0;
 				for(int w=0; w<featureBatch[d].length; w++){
 					tmpWord = featureBatch[d][w].getName();
 					tmp += lambda_.get(tmpWord)[k];
-//					System.out.println("Lambda_kw:" + lambda_.get(tmpWord)[k]);
+					System.out.println(lambda_.get(tmpWord)[k]);
+//					System.out.println("");
+//					System.out.print("[" + k + ". " + tmpWord + "]:" + lambda_.get(tmpWord)[k]);
 				}
+//				System.out.println("");
 				tmpSum3_1 = (-1) * Math.log(Gamma.gamma(tmp));
 				tmpSum3 += tmpSum3_1;
 				
@@ -168,14 +175,16 @@ public class OnlineLDA_Batch implements LDAModel{
 		long end = System.nanoTime();
 		System.out.println("CHECK TIME(ALL):" + (end - start));
 		
-		phi_ = new ArrayList<HashMap<String, double[]>>();
+//		phi_ = new ArrayList<HashMap<String, double[]>>();
 
+		start = System.nanoTime();
 		for(int d=0; d < D_; d++){
 			double[] gammaD = gamma_.get(d); 
 			double[] elogThetaD = eLogTheta.get(d);
 			double[] expElogThetaD = expELogTheta.get(d);
 			
-			HashMap<String, double[]> tmpPhi = new HashMap<String, double[]>();
+			HashMap<String, double[]> tmpPhi = phi_.get(d);
+
 			for(int w=0,Nd=featureBatch[d].length; w<Nd; w++){
 				String tmpName = featureBatch[d][w].getName();
 				double[] tmp = new double[K_];
@@ -186,23 +195,26 @@ public class OnlineLDA_Batch implements LDAModel{
 			}
 			
 			double[] lastGamma;
-			
-			
 			// E Step
 			for(int it=0; it<ITERNUM; it++){
 				lastGamma = copyGamma(gammaD);
 				
 				// Gamma
+				double tmpSumGammaD = 0;
 				for(int k=0; k<K_; k++){
 					double sumPhi_twk_N_tw = 0;
 					for(int w=0, Nd = featureBatch[d].length; w<Nd; w++){
 						String tmpKey = featureBatch[d][w].getName();
 						int cnt = featureBatch[d][w].getCount();
 						sumPhi_twk_N_tw += (tmpPhi.get(tmpKey)[k] * cnt);
-
 					}
-//					gammaD[k] = alpha_ + sumPhi_twk_N_tw;
-					gammaD[k] = alpha_ + (sumPhi_twk_N_tw); 
+					gammaD[k] = alpha_ +(sumPhi_twk_N_tw); 
+//					System.out.print(" [" + k + "]:" + gammaD[k]);
+					tmpSumGammaD += gammaD[k];
+				}
+//				System.out.println("");
+				for(int k=0; k<K_; k++){
+					gammaD[k] /= tmpSumGammaD;
 				}
 				
 				// Phi
@@ -219,11 +231,27 @@ public class OnlineLDA_Batch implements LDAModel{
 					System.out.println("ITERATION:" + it);
 					break;
 				}
+				// CALC Eqs 
+//				start = System.nanoTime();
+				updateEqThetas();
+//				end = System.nanoTime();
+//				System.out.println("eqTheta:" + (end -start));
+//				start = System.nanoTime();
+				updateEqEta();
+//				end = System.nanoTime();
+//				System.out.println("eqEta:" + (end -start));
 			}
 			
-			phi_.add(tmpPhi);
+//			for(String key:tmpPhi.keySet()){
+//				System.out.println(Arrays.toString(tmpPhi.get(key)));
+//			}
+			
+			phi_.set(d, tmpPhi);
 			eLogTheta.set(d, elogThetaD);
 			expELogTheta.set(d, expElogThetaD);
+
+			end = System.nanoTime();
+			System.out.println("AFTER CHECK(ALL):" + (end - start));
 		}
 		
 		// M Step
@@ -235,7 +263,7 @@ public class OnlineLDA_Batch implements LDAModel{
 				if(lambdaBar.containsKey(tmpName)){
 					double[] tmp = lambdaBar.get(tmpName);
 					for(int k=0; k<K_; k++){
-						tmp[k] += eta_ + (estimateD / D_) * tmpCount * phi_.get(d).get(tmpName)[k];
+						tmp[k] += eta_ + (D_) * tmpCount * phi_.get(d).get(tmpName)[k];
 					}
 					lambdaBar.put(tmpName, tmp);
 				}else{
@@ -278,14 +306,60 @@ public class OnlineLDA_Batch implements LDAModel{
 	}
 
 
+	private void updateEqEta() {
+		double[] LambdaSums = new double[K_];
+		Arrays.fill(LambdaSums, 0);
+		for(String key:eLogBeta.keySet()){
+			double[] tmpArray = eLogBeta.get(key);
+			for(int k=0; k<K_; k++){
+				LambdaSums[k] += tmpArray[k];
+			}
+		}
+		for(int k=0; k<K_; k++){
+			LambdaSums[k] += 0.001;
+			LambdaSums[k] = Gamma.digamma(LambdaSums[k]);
+		}
+		for(int k=0; k<K_; k++){
+
+			for(String key:eLogBeta.keySet()){
+				double tmp2 = Gamma.digamma(eLogBeta.get(key)[k]) - LambdaSums[k];
+				eLogBeta.get(key)[k] = tmp2;
+				expELogBeta.get(key)[k] = Math.exp(tmp2);
+			}
+		}
+	}
+
+	private void updateEqThetas() {
+		for(int d=0; d<D_; d++){
+			double GammaSumK = 0;
+			for(int k=0; k<K_; k++){
+				GammaSumK += gamma_.get(d)[k];
+			}
+			
+//			System.out.println("GammaSumK:" + GammaSumK);
+			GammaSumK = Gamma.digamma(GammaSumK);
+			
+			double[] tmp = new double[K_];
+			double[] expTmp = new double[K_];
+			for(int k=0; k<K_; k++){
+				tmp[k] = Gamma.digamma(gamma_.get(d)[k]) - GammaSumK;
+				expTmp[k] = Math.exp(tmp[k]);
+			}
+			eLogTheta.set(d, tmp);
+			expELogTheta.set(d, expTmp);
+		}
+	}
+
 	private boolean changeGamma(double[] lastGamma, double[] gammaD) {
 		double tmp = 0;
 		for(int k=0; k<K_; k++){
 			tmp += Math.abs(lastGamma[k] - gammaD[k]);
 		}
 		if(tmp < THRESHHOLD * K_){
+			System.out.println("Diff:" + tmp);
 			return true;
 		}else{
+			System.out.println("**Diff**:" + tmp);
 			return false;
 		}
 	}
@@ -299,7 +373,6 @@ public class OnlineLDA_Batch implements LDAModel{
 	}
 
 	private void checkNewFeature(Feature[][] featureBatch) {
-		
 		// phi_
 		phi_ = new ArrayList<HashMap<String, double[]>>();
 
@@ -310,16 +383,21 @@ public class OnlineLDA_Batch implements LDAModel{
 		eLogTheta = new ArrayList<double[]>();
 		expELogTheta = new ArrayList<double[]>();
 		
-
+		int allWordCount = 0;
+		for(int d=0; d<D_; d++){
+			allWordCount += featureBatch[d].length;
+		}
 
 		long check1start, check1end;
 		long check2start, check2end;
 		
+		
+		
 		for(int d=0; d<D_; d++){
-
 			// CALC: Gamma
 			double[] tmp;
-			double[] tmpGamma = getRandomGammaArray();
+//			double[] tmpGamma = getRandomGammaArrayRegularized();
+			double[] tmpGamma = getUniformalArray(1./K_);
 			gamma_.add(tmpGamma);
 
 			// CALC: elogTheta, expElogTheta
@@ -335,7 +413,7 @@ public class OnlineLDA_Batch implements LDAModel{
 			expELogTheta.add(expTmp);
 			
 			// CALC: PHI, elogBeta and expElogBeta 
-			HashMap<String, double[]> tmpHashMap = new HashMap<String, double[]>();
+			HashMap<String, double[]> tmpHashMap = new HashMap<String, double[]>();  // PHI
 
 			for(int w=0, Nd=featureBatch[d].length; w<Nd; w++){
 				String tmpName = featureBatch[d][w].getName();
@@ -343,14 +421,17 @@ public class OnlineLDA_Batch implements LDAModel{
 				// LAMBDA AND PHI
 				if(!lambda_.containsKey(tmpName)){
 					// LAMBDA 
-					tmp = getRandomGammaArray();	//TODO enable
-//					tmp = getRandomArray();
+//					tmp = getRandomGammaArrayRegularized();	
+					tmp = getRandomArray();
 					lambda_.put(tmpName, tmp);
 					// PHI
+//					tmp = getRandomGammaArrayRegularized();	// TODO confirm my decision
 					tmp = getRandomGammaArray();	// TODO confirm my decision
+//					for(int k=0; k<K_; k++){
+//						tmp[k] /= D_;
+//					}
 					tmpHashMap.put(tmpName, tmp);
-
-				}			
+				}	
 				
 				// elogBeta expElogBeta
 				if(!eLogBeta.containsKey(tmpName)){
@@ -362,7 +443,7 @@ public class OnlineLDA_Batch implements LDAModel{
 //					System.out.println("CHECK1:" + (check1end - check1start));
 
 //					check2start = System.nanoTime();
-					expTmp = new double[K_];
+					expTmp = tmp;
 					for(int k=0; k<K_; k++){
 						expTmp[k] = Math.exp(tmp[k]);
 					}
@@ -371,13 +452,20 @@ public class OnlineLDA_Batch implements LDAModel{
 //					System.out.println("CHECK2:" + (check2end - check2start));
 				}
 			}
+			phi_.add(tmpHashMap);
 		}
 	}
 	
+	private double[] getUniformalArray(double d) {
+		double[] ret = new double[K_];
+		Arrays.fill(ret, d);
+		return ret;
+	}
+
 	private double[] getRandomArray(){
 		double[] ret = new double[K_];
 		for(int k=0; k<K_; k++){
-			ret[k] = rnd.nextDouble();
+			ret[k] = rnd.nextDouble() * 0.001;
 		}
 		return ret;
 	}
@@ -430,6 +518,20 @@ public class OnlineLDA_Batch implements LDAModel{
 		return ret;
 	}
 
+	private double[] getRandomGammaArrayRegularized() {
+		double[] ret = new double[K_];
+		double tmp = 0;
+		for(int k=0; k<K_; k++){
+			ret[k] = gd.sample();
+			tmp += ret[k];
+		}
+		
+		for(int k=0; k<K_; k++){
+			ret[k] /= tmp;
+		}
+		return ret;
+	}
+
 	@Override
 	public void showTopicWords() {
 		System.out.println("SHOW TOPIC WORDS:");
@@ -440,7 +542,6 @@ public class OnlineLDA_Batch implements LDAModel{
 			for(String key:lambda_.keySet()){
 				lambdaSum += lambda_.get(key)[k];
 			}
-				
 			
 			System.out.print("Topic:" + k);
 			try {

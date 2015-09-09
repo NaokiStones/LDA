@@ -23,22 +23,23 @@ public class ExecuteWiki_Batch_Separate{
 	static String baseURI;
 	
 	// limit Read File Per Directory
-	static int limit = 10;
+//	static int limit = 10;
 
 	// LDA Parameters
-	static int K = 30;
-	static double alpha = 1./(K);
+	static int K = 2;
+	static double alpha = 1./(K );
 	static double eta = 1./ K;
 //	static double eta = 1/(K*1E2);
-	static double tau0 = 200;	// 1024
+	static double tau0 = 2;	// 1024
 	static double kappa = 0.7;	// 0.7
-	static int IterNum = 100000;
+	static int IterNum = 100;
+	static int PPLNUM = 10;
 	
 	
 	public static void main(String[] args) throws IOException{
 		// Set Directory
 		// IMPORT DATASET
-		baseURI = "/Users/ishikawanaoki/Documents/datasetML/tmpWiki/";
+		baseURI = "/Users/ishikawanaoki/Documents/datasetML/wiki1000_backUp/";
 		getFiles();
 
 		// MAKE BATCH
@@ -53,7 +54,7 @@ public class ExecuteWiki_Batch_Separate{
 		System.out.println("Time MAX:" + featureBatchList.size() * batchSize_);
 		
 		// FOR PERPLEXITY LOOP
-		for(int ppl=0; ppl<10; ppl++){
+		for(int ppl=0; ppl<PPLNUM; ppl++){
 			for(Feature[][] featureBATCH:featureBatchList){
 				System.out.println("time:" + time);
 				onlineLDA_Batch.trainBatch(featureBATCH, time);
